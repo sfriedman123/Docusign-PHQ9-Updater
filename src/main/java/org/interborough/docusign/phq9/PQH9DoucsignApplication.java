@@ -1,10 +1,14 @@
 package org.interborough.docusign.phq9;
 
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.sql.Date;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
@@ -12,6 +16,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -19,7 +24,7 @@ import org.json.JSONObject;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-public class EnvelopeInfo {
+public class PQH9DoucsignApplication {
 
 	// fech all envelopes.  
 	// look up 
@@ -29,16 +34,49 @@ public class EnvelopeInfo {
 
 		// get 
 
+		String configFilePath = args[0];
+		Properties prop = new Properties();
+		FileInputStream fis = null;
+		try {
+			fis = new FileInputStream(configFilePath);
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		try {
+			prop.load(fis);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		String appFilePath = args[1];
+		Properties applicationProps = new Properties();
+
+		try {
+			fis = new FileInputStream(appFilePath);
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		try {
+			applicationProps.load(fis);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+
+
 		DocusignEnvelopeStatusAPI api = new DocusignEnvelopeStatusAPI();
 
-		String configFilePath = "C:\\Users\\SFriedman\\eclipse-workspace\\PHQ9-Updater\\prod-adult-flatbush-intake.config";
+
 		String token = api.getAccessToken(configFilePath);
 		System.out.println(token);
 
 		//getAllEnvelopes(token, "https://na4.docusign.net//restapi/v2.1/accounts/6543288/");
-		fetchAllEnvelopes(token, "https://na4.docusign.net//restapi/v2.1/accounts/6543288");
+		fetchAllEnvelopes(token, prop.getProperty("baseURL"),"2021-09-01T00:00:00Z", "2024-12-10T23:59:59Z", applicationProps );
 
-		String json = getRecipientForEnvelope(token, "https://na4.docusign.net//restapi/v2.1/accounts/6543288/", "EB39B875-DC39-4D53-864F-9D4015849770");
+		//String json = getRecipientForEnvelope(token, "https://na4.docusign.net//restapi/v2.1/accounts/6543288/", "EB39B875-DC39-4D53-864F-9D4015849770");
 
 
 	}
@@ -170,7 +208,7 @@ public class EnvelopeInfo {
 		HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
 		System.out.println(response.statusCode());
 		//System.out.println(response.body());
-		System.out.println("document for envelope");
+		System.out.println("recipient for envelope");
 
 		JSONObject jsonResponse = new JSONObject(response.body());
 		// System.out.println("Envelope Status: " + jsonResponse.getString("status"));
@@ -178,13 +216,43 @@ public class EnvelopeInfo {
 
 		List<Map<String, String>> results = extractEmailAndName(jsonResponse.toString());
 
+
 		for (Map<String, String> signer : results) {
 			System.out.println("Name: " + signer.get("name") + ", Email: " + signer.get("email"));
+
 		}
 		return jsonResponse.toString(4);
 
 	}	
 
+	public static String extractValueFromNode(String json, String nodeToFind)
+	{
+		String signedDate = null;
+		try {
+
+			ObjectMapper mapper = new ObjectMapper();
+
+			// Parse JSON string into a JsonNode
+			JsonNode rootNode = mapper.readTree(json);
+
+
+			// Navigate to "signers[0].signedDateTime"
+			JsonNode signedDateNode = rootNode.path("signers").get(0).path(nodeToFind);
+
+
+			if (!signedDateNode.isMissingNode()) {
+				signedDate = signedDateNode.asText();
+				System.out.println("Signed Date: " + signedDate);
+			} else {
+				System.out.println("signedDateTime not found!");
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return signedDate;
+
+	}
 
 	public static String getDocumentsForEnvelopes(String accessToken, String BASE_URL, String envelopeId)
 			throws IOException, InterruptedException {
@@ -303,36 +371,9 @@ public class EnvelopeInfo {
 
 		return totalScore;
 	}
-	public static String getAllEnvelopes(String accessToken, String BASE_URL)
-			throws IOException, InterruptedException {
 
-		HttpClient client = HttpClient.newHttpClient();
 
-		LocalDateTime thirtyDaysAgo = LocalDateTime.now().minusDays(30);
-
-		// Convert to ISO 8601 format
-		String formattedDate = thirtyDaysAgo.atOffset(ZoneOffset.UTC).format(DateTimeFormatter.ISO_DATE_TIME);
-		String urlForAPI = BASE_URL + formattedDate;
-		System.out.println(urlForAPI);
-
-		HttpRequest request = HttpRequest.newBuilder()
-
-				.uri(URI.create(BASE_URL + "/envelopes?from_date=2021-09-01T00:00:00Z&to_date=2024-12-04T23:59:59Z" ))
-				.header("Authorization", "Bearer " + accessToken).header("Accept", "application/json").build();
-
-		HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-		System.out.println(response.statusCode());
-		//System.out.println(response.body());
-		System.out.println("document for envelope");
-
-		JSONObject jsonResponse = new JSONObject(response.body());
-		// System.out.println("Envelope Status: " + jsonResponse.getString("status"));
-		System.out.println(jsonResponse.toString());
-		return jsonResponse.toString(4);
-
-	}
-
-	public static List<JSONObject> fetchAllEnvelopes(String accessToken, String BASE_URL) throws Exception {
+	public static List<JSONObject> fetchAllEnvelopes(String accessToken, String BASE_URL, String fromDate, String toDate,Properties prop) throws Exception {
 
 		List<JSONObject> allEnvelopes = new ArrayList<>();
 
@@ -344,7 +385,8 @@ public class EnvelopeInfo {
 		String formattedDate = thirtyDaysAgo.atOffset(ZoneOffset.UTC).format(DateTimeFormatter.ISO_DATE_TIME);
 		String urlForAPI = BASE_URL + formattedDate;
 		System.out.println(urlForAPI);
-		String endpoint = BASE_URL + "/envelopes?from_date=2024-11-25T00:00:00Z&to_date=2024-12-04T23:59:59Z&&status=completed";
+		String endpoint = BASE_URL + "/envelopes?from_date=" + fromDate + "&" + "to_Date=" + toDate + "&&status=completed";
+
 		String nextUri = endpoint;
 
 		// System.out.println("Envelope Status: " + jsonResponse.getString("status"));
@@ -372,27 +414,66 @@ public class EnvelopeInfo {
 				JSONObject envelope = envelopes.getJSONObject(i);
 				System.out.println("Envelope ID: " + envelope.getString("envelopeId"));
 
-				String json = getRecipientForEnvelope(accessToken, "https://na4.docusign.net//restapi/v2.1/accounts/6543288/", envelope.getString("envelopeId"));
+				PHQEntity phqe = new PHQEntity();
+				PHQMany childRecord = new PHQMany();
+				childRecord.setEnvelopeId( envelope.getString("envelopeId"));
 
-				String allTabs = getTabs(accessToken,"https://na4.docusign.net//restapi/v2.1/accounts/6543288/", envelope.getString("envelopeId") );
-				System.out.println(extractFirstECR1(allTabs));
-				String JsonData = getDocumentsForEnvelopes(accessToken, "https://na4.docusign.net//restapi/v2.1/accounts/6543288/", envelope.getString("envelopeId"));
-				//				System.out.println(JsonData);
-				String documentID = findDocumentIdByName(JsonData, "PHQ9");
 
-				if (documentID != null)
+				String json = getRecipientForEnvelope(accessToken, BASE_URL, envelope.getString("envelopeId"));
+				String signedDate =  extractValueFromNode(json, "signedDateTime");
+				Instant instant = Instant.parse(signedDate);
+
+				// Convert Instant to SQL Date
+				childRecord.setSignedDate(new Date(instant.toEpochMilli()));
+				//String envelopeID =  extractValueFromNode(json, "envelopeId");
+
+				System.out.println("signed date:" + signedDate + "envelopeid: " +   envelope.getString("envelopeId"));
+				//phqe.setClientName(json);
+
+				String allTabs = getTabs(accessToken, BASE_URL, envelope.getString("envelopeId") );
+				//String signedDate =  extractSignedDate();
+
+				//System.out.println("signed date:" + signedDate);
+				System.out.println("ECR1: " + extractFirstECR1(allTabs ));
+				if (! extractFirstECR1(allTabs ).equals("") )
 				{
-					System.out.println("FOUND PHQ");	
-					System.out.println(documentID);
+					phqe.setClientId(Integer.parseInt(extractFirstECR1(allTabs)));
+					childRecord.setClientId(phqe.getClientId());
+
+					QueryExecutor qe = new QueryExecutor(prop);
+					qe.executeQuery(prop, extractFirstECR1(allTabs), phqe);
+
+					String JsonData = getDocumentsForEnvelopes(accessToken, BASE_URL, envelope.getString("envelopeId"));
+
+					String documentID = findDocumentIdByName(JsonData, "PHQ9");
+
+					if (documentID != null)
+					{
+						System.out.println("FOUND PHQ");	
+						System.out.println(documentID);
+						DatabaseHelper dbHelper = new DatabaseHelper(prop);
+						if (! dbHelper.doesClientIdExist(phqe.getClientId()))
+							dbHelper.insertIntoDocusignPhq9Master(phqe);
+						else
+							System.out.println("Already in master");
+						String jsonData = getDocumentData(accessToken, BASE_URL, envelope.getString("envelopeId"), documentID  );
+						childRecord.setPhqScore(computeScore(jsonData));
 
 
-					String jsonData = getDocumentData(accessToken,"https://na4.docusign.net//restapi/v2.1/accounts/6543288/", envelope.getString("envelopeId"), documentID  );
-					System.out.println(computeScore(jsonData));
+						System.out.println(computeScore(jsonData));
+						if (! dbHelper.doesEnvelopeIdExist(childRecord.getEnvelopeId()))
+						{
+							dbHelper.insertIntoPhqResults(childRecord);
+						}
+						{
+							System.out.println("this envelope exists.  Not writing it to the database");
+						}
+
+					}
+					else
+
+						System.out.println("NO PHQ");
 				}
-				else
-
-					System.out.println("NO PHQ");
-
 
 			}
 

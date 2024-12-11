@@ -38,6 +38,10 @@
    
 	
 <dependencies>
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter</artifactId>
+</dependency>
 
 
 		<dependency>
@@ -134,6 +138,13 @@
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
 			</plugin>
+			<plugin>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-maven-plugin</artifactId>
+            <configuration>
+                <mainClass>org.interborough.docusign.phq9.MySpringBootApplication</mainClass>
+            </configuration>
+        </plugin>
 		</plugins>
 	</build>
 
