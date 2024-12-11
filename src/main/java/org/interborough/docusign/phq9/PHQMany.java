@@ -6,14 +6,14 @@ public class PHQMany {
 
     private Date signedDate;
     private String envelopeId = "";
-    private int clientId = 0;
+    private String clientId = "";
     private int phqScore = 0;
 
     // Default Constructor
     public PHQMany() {}
 
     // Parameterized Constructor
-    public PHQMany(Date signedDate, String envelopeId, int clientId, int phqScore) {
+    public PHQMany(Date signedDate, String envelopeId, String clientId, int phqScore) {
         this.signedDate = signedDate;
         this.envelopeId = envelopeId;
         this.clientId = clientId;
@@ -37,11 +37,11 @@ public class PHQMany {
         this.envelopeId = envelopeId;
     }
 
-    public int getClientId() {
+    public String getClientId() {
         return clientId;
     }
 
-    public void setClientId(int clientId) {
+    public void setClientId(String clientId) {
         this.clientId = clientId;
     }
 

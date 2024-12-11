@@ -4,7 +4,7 @@ public class PHQEntity {
 
     private String staffName="";
     private String credentials="";
-    private int clientId=0;
+    private String clientId="";
     private String clientName="";
     private String organization="";
 
@@ -12,7 +12,7 @@ public class PHQEntity {
     public PHQEntity() {
     }
 
-    public PHQEntity(String staffName, String credentials, int clientId, String clientName, String organization) {
+    public PHQEntity(String staffName, String credentials, String clientId, String clientName, String organization) {
         this.staffName = staffName;
         this.credentials = credentials;
         this.clientId = clientId;
@@ -37,11 +37,11 @@ public class PHQEntity {
         this.credentials = credentials;
     }
 
-    public int getClientId() {
+    public String getClientId() {
         return clientId;
     }
 
-    public void setClientId(int clientId) {
+    public void setClientId(String clientId) {
         this.clientId = clientId;
     }
 

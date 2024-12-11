@@ -34,7 +34,7 @@ public class DatabaseHelper {
             // Set the values for the prepared statement
             preparedStatement.setString(1, staffDetails.getStaffName());
             preparedStatement.setString(2, staffDetails.getCredentials());
-            preparedStatement.setInt(3, staffDetails.getClientId());
+            preparedStatement.setString(3, staffDetails.getClientId());
             preparedStatement.setString(4, staffDetails.getClientName());
             preparedStatement.setString(5, staffDetails.getOrganization());
             System.out.println(staffDetails);
@@ -61,7 +61,7 @@ public class DatabaseHelper {
             // Set the values for the prepared statement
             preparedStatement.setDate(1, phqDetails.getSignedDate());
             preparedStatement.setString(2, phqDetails.getEnvelopeId());
-            preparedStatement.setInt(3, phqDetails.getClientId());
+            preparedStatement.setString(3, phqDetails.getClientId());
             preparedStatement.setInt(4, phqDetails.getPhqScore());
 
             // Execute the insert statement
@@ -82,14 +82,14 @@ public class DatabaseHelper {
      * @param clientId The client ID to check.
      * @return True if the client ID exists, otherwise false.
      */
-    public boolean doesClientIdExist(int clientId) {
+    public boolean doesClientIdExist(String clientId) {
         String checkQuery = "SELECT COUNT(*) FROM docusign_phq9_master WHERE client_id = ?";
         
         try (Connection connection = DriverManager.getConnection(jdbcURL, dbUser, DB_PASSWORD);
              PreparedStatement preparedStatement = connection.prepareStatement(checkQuery)) {
 
             // Set the client_id parameter in the prepared statement
-            preparedStatement.setInt(1, clientId);
+            preparedStatement.setString(1, clientId);
 
             // Execute the query and retrieve the result
             ResultSet resultSet = preparedStatement.executeQuery();

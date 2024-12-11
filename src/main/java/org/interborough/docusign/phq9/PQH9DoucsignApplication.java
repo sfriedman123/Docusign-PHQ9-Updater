@@ -74,7 +74,11 @@ public class PQH9DoucsignApplication {
 		System.out.println(token);
 
 		//getAllEnvelopes(token, "https://na4.docusign.net//restapi/v2.1/accounts/6543288/");
-		fetchAllEnvelopes(token, prop.getProperty("baseURL"),"2021-09-01T00:00:00Z", "2024-12-10T23:59:59Z", applicationProps );
+		String API =  "/envelopes?from_date=";
+		fetchAllEnvelopes(token, prop.getProperty("baseURL"),"2024-05-26T00:00:00Z", "2024-12-11T23:59:59Z", applicationProps, API, false );
+		//API =  "/envelopes?from_date=";
+		//fetchAllEnvelopes(token, prop.getProperty("baseURL"),"2024-05-26T00:00:00Z", "2024-12-11T23:59:59Z", applicationProps, API, false );
+		
 
 		//String json = getRecipientForEnvelope(token, "https://na4.docusign.net//restapi/v2.1/accounts/6543288/", "EB39B875-DC39-4D53-864F-9D4015849770");
 
@@ -253,6 +257,7 @@ public class PQH9DoucsignApplication {
 		return signedDate;
 
 	}
+	
 
 	public static String getDocumentsForEnvelopes(String accessToken, String BASE_URL, String envelopeId)
 			throws IOException, InterruptedException {
@@ -373,7 +378,8 @@ public class PQH9DoucsignApplication {
 	}
 
 
-	public static List<JSONObject> fetchAllEnvelopes(String accessToken, String BASE_URL, String fromDate, String toDate,Properties prop) throws Exception {
+	
+	public static List<JSONObject> fetchAllEnvelopes(String accessToken, String BASE_URL, String fromDate, String toDate,Properties prop, String API, boolean bulk ) throws Exception {
 
 		List<JSONObject> allEnvelopes = new ArrayList<>();
 
@@ -385,7 +391,7 @@ public class PQH9DoucsignApplication {
 		String formattedDate = thirtyDaysAgo.atOffset(ZoneOffset.UTC).format(DateTimeFormatter.ISO_DATE_TIME);
 		String urlForAPI = BASE_URL + formattedDate;
 		System.out.println(urlForAPI);
-		String endpoint = BASE_URL + "/envelopes?from_date=" + fromDate + "&" + "to_Date=" + toDate + "&&status=completed";
+		String endpoint = BASE_URL + API + fromDate + "&" + "to_Date=" + toDate + "&&status=completed";
 
 		String nextUri = endpoint;
 
@@ -437,7 +443,127 @@ public class PQH9DoucsignApplication {
 				System.out.println("ECR1: " + extractFirstECR1(allTabs ));
 				if (! extractFirstECR1(allTabs ).equals("") )
 				{
-					phqe.setClientId(Integer.parseInt(extractFirstECR1(allTabs)));
+					phqe.setClientId(extractFirstECR1(allTabs));
+					childRecord.setClientId(phqe.getClientId());
+
+					QueryExecutor qe = new QueryExecutor(prop);
+					qe.executeQuery(prop, extractFirstECR1(allTabs), phqe);
+
+					String JsonData = getDocumentsForEnvelopes(accessToken, BASE_URL, envelope.getString("envelopeId"));
+
+					String documentID = findDocumentIdByName(JsonData, "PHQ9");
+
+					if (documentID != null)
+					{
+						System.out.println("FOUND PHQ");	
+						System.out.println(documentID);
+						DatabaseHelper dbHelper = new DatabaseHelper(prop);
+						if (! dbHelper.doesClientIdExist(phqe.getClientId()))
+							dbHelper.insertIntoDocusignPhq9Master(phqe);
+						else
+							System.out.println("Already in master");
+						String jsonData = getDocumentData(accessToken, BASE_URL, envelope.getString("envelopeId"), documentID  );
+						childRecord.setPhqScore(computeScore(jsonData));
+
+
+						System.out.println(computeScore(jsonData));
+						if (! dbHelper.doesEnvelopeIdExist(childRecord.getEnvelopeId()))
+						{
+							dbHelper.insertIntoPhqResults(childRecord);
+						}
+						{
+							System.out.println("this envelope exists.  Not writing it to the database");
+						}
+
+					}
+					else
+
+						System.out.println("NO PHQ");
+				}
+
+			}
+
+			// Get the next URI for pagination
+			nextUri = responseBody.optString("nextUri", null);
+			System.out.println("endpoint: " + nextUri);
+
+			endpoint = "https://na4.docusign.net//restapi/v2.1" + nextUri;
+			System.out.println("endpoint: " + endpoint);
+			if (! (nextUri.equals(""))) {
+				System.out.println("Fetching next page: " + nextUri);
+			}
+
+		}
+
+		return allEnvelopes;
+	}
+	
+	
+	public static List<JSONObject> fetchAllBulkEnvelopes(String accessToken, String BASE_URL, String fromDate, String toDate,Properties prop, String API, boolean bulk ) throws Exception {
+
+		List<JSONObject> allEnvelopes = new ArrayList<>();
+
+		HttpClient client = HttpClient.newHttpClient();
+
+		LocalDateTime thirtyDaysAgo = LocalDateTime.now().minusDays(30);
+
+		// Convert to ISO 8601 format
+		String formattedDate = thirtyDaysAgo.atOffset(ZoneOffset.UTC).format(DateTimeFormatter.ISO_DATE_TIME);
+		String urlForAPI = BASE_URL + formattedDate;
+		System.out.println(urlForAPI);
+		String endpoint = BASE_URL + API + fromDate + "&" + "to_Date=" + toDate + "&&status=completed";
+
+		String nextUri = endpoint;
+
+		// System.out.println("Envelope Status: " + jsonResponse.getString("status"));
+
+		while (! (nextUri.equals(""))) {
+			// Fetch data from the current endpoint
+			System.out.println(endpoint);
+
+
+			HttpRequest request = HttpRequest.newBuilder()
+
+					.uri(URI.create(endpoint))
+					.header("Authorization", "Bearer " + accessToken).header("Accept", "application/json").build();
+
+			HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+			System.out.println(response.statusCode());
+
+			System.out.println(response.body());
+
+			JSONObject responseBody = new JSONObject(response.body());
+			JSONArray envelopes = responseBody.getJSONArray("envelopes");
+
+			// Process each envelope
+			for (int i = 0; i < envelopes.length(); i++) {
+				JSONObject envelope = envelopes.getJSONObject(i);
+				System.out.println("Envelope ID: " + envelope.getString("envelopeId"));
+
+				PHQEntity phqe = new PHQEntity();
+				PHQMany childRecord = new PHQMany();
+				childRecord.setEnvelopeId( envelope.getString("envelopeId"));
+
+
+				String json = getRecipientForEnvelope(accessToken, BASE_URL, envelope.getString("envelopeId"));
+				String signedDate =  extractValueFromNode(json, "signedDateTime");
+				Instant instant = Instant.parse(signedDate);
+
+				// Convert Instant to SQL Date
+				childRecord.setSignedDate(new Date(instant.toEpochMilli()));
+				//String envelopeID =  extractValueFromNode(json, "envelopeId");
+
+				System.out.println("signed date:" + signedDate + "envelopeid: " +   envelope.getString("envelopeId"));
+				//phqe.setClientName(json);
+
+				String allTabs = getTabs(accessToken, BASE_URL, envelope.getString("envelopeId") );
+				//String signedDate =  extractSignedDate();
+
+				//System.out.println("signed date:" + signedDate);
+				System.out.println("ECR1: " + extractFirstECR1(allTabs ));
+				if (! extractFirstECR1(allTabs ).equals("") )
+				{
+					phqe.setClientId(extractFirstECR1(allTabs));
 					childRecord.setClientId(phqe.getClientId());
 
 					QueryExecutor qe = new QueryExecutor(prop);
@@ -539,6 +665,8 @@ public class PQH9DoucsignApplication {
 
 		return allEnvelopes;
 	}
+	
+	
 	private static String extractValue(String responseBody, String key) {
 		int startIndex = responseBody.indexOf(key);
 		if (startIndex == -1) return null;
