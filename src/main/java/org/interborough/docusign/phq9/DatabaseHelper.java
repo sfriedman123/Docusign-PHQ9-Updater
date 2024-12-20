@@ -1,10 +1,22 @@
 package org.interborough.docusign.phq9;
+import java.io.FileInputStream;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 
 public class DatabaseHelper {
 	
@@ -14,6 +26,28 @@ public class DatabaseHelper {
 	private String jdbcURL;
 	private String dbUser;
 	private String DB_PASSWORD;
+	private String masterChildPHQ9Query =	"SELECT LTRIM(RTRIM(" +
+            "CASE " +
+            "    WHEN CHARINDEX(' ', m.Staff_Name) > 0 THEN " +
+            "        SUBSTRING(m.Staff_Name, CHARINDEX(' ', m.Staff_Name) + 1, LEN(m.Staff_Name)) " +
+            "        + ', ' + " +
+            "        SUBSTRING(m.Staff_Name, 1, CHARINDEX(' ', m.Staff_Name) - 1) " +
+            "    ELSE m.Staff_Name " +
+            "END)) AS Formatted_Staff_Name, " +
+            "m.Credentials, " +
+            "r.Client_ID, " +
+            "m.Organization, " +
+            "r.PHQ9_Date, " +
+            "r.PHQ9_Score " +
+            "FROM docusign_phq9_master m " +
+            "JOIN Docusign_PHQ9_Results r " +
+            "    ON m.Client_ID = r.Client_ID " +
+            "WHERE m.Organization = 'Flatbush' " +
+            "    AND m.Staff_Name IS NOT NULL " +
+            "ORDER BY Formatted_Staff_Name ASC;";
+			
+			
+			
 
    public DatabaseHelper(Properties prop) throws SQLException {
 		// TODO Auto-generated constructor stub
@@ -52,8 +86,8 @@ public class DatabaseHelper {
     }
     
     public void insertIntoPhqResults(PHQMany phqDetails) {
-        String insertQuery = "INSERT INTO phq9_results (PHQ9_date, envelopeID, client_id, phq9_score) " +
-                             "VALUES (?, ?, ?, ?)";
+        String insertQuery = "INSERT INTO docusign_phq9_results (PHQ9_date, envelopeID, client_id, phq9_score, isbulk) " +
+                             "VALUES (?, ?, ?, ?, ?)";
 
         try (Connection connection = DriverManager.getConnection(jdbcURL, dbUser, DB_PASSWORD);
              PreparedStatement preparedStatement = connection.prepareStatement(insertQuery)) {
@@ -63,6 +97,8 @@ public class DatabaseHelper {
             preparedStatement.setString(2, phqDetails.getEnvelopeId());
             preparedStatement.setString(3, phqDetails.getClientId());
             preparedStatement.setInt(4, phqDetails.getPhqScore());
+            preparedStatement.setBoolean (5, phqDetails.isBulk());
+            
 
             // Execute the insert statement
             int rowsInserted = preparedStatement.executeUpdate();
@@ -111,14 +147,15 @@ public class DatabaseHelper {
      * @param envelopeId The envelope ID to check.
      * @return True if the envelope ID exists, otherwise false.
      */
-    public boolean doesEnvelopeIdExist(String envelopeId) {
-        String checkQuery = "SELECT COUNT(*) FROM PHQ9_Results WHERE EnvelopeID = ?";
+    public boolean doesEnvelopeIdExist(String envelopeId, String clientId) {
+        String checkQuery = "SELECT COUNT(*) FROM Docusign_PHQ9_Results WHERE EnvelopeID = ? AND Client_ID= ?";
         
         try (Connection connection = DriverManager.getConnection(jdbcURL, dbUser, DB_PASSWORD);
              PreparedStatement preparedStatement = connection.prepareStatement(checkQuery)) {
 
             // Set the envelopeId parameter in the prepared statement
             preparedStatement.setString(1, envelopeId);
+            preparedStatement.setString(2, clientId);
 
             // Execute the query and retrieve the result
             ResultSet resultSet = preparedStatement.executeQuery();
@@ -132,13 +169,89 @@ public class DatabaseHelper {
 
         // Return false if an exception occurs or no result is found
         return false;
+        
     }
+    
+    public  void flattenPHQ9Results(String query) throws SQLException, IOException {
+       
+             Connection connection = DriverManager.getConnection(this.jdbcURL, this.dbUser, this.DB_PASSWORD);
+             Statement stmt = connection.createStatement();
+             System.out.println(query);
+             ResultSet rs = stmt.executeQuery(query);
+
+            // LinkedHashMap to maintain insertion order for Client_IDs
+             Map<String, Map<String, Object>> clientDataMap = new LinkedHashMap<>();
+
+             // Store unique PHQ9_Date and PHQ9_Score count for dynamic columns
+             Map<String, Integer> dateScoreCountMap = new HashMap<>();
+
+             // Process ResultSet
+             ResultSetMetaData metaData = rs.getMetaData();
+             int columnCount = metaData.getColumnCount();
+             FileWriter csvWriter = new FileWriter("c:/temp/a.csv");
+
+             while (rs.next()) {
+                 String clientId = rs.getString("Client_ID");
+                 if (clientId.trim().equals("159611"))
+                 {
+                	 System.out.println("stop here");
+                 }
+                	 
+                 
+                 
+                 clientDataMap.putIfAbsent(clientId, new LinkedHashMap<>());
+
+                 // Add all fields except PHQ9_Date and PHQ9_Score to the map
+                 for (int i = 1; i <= columnCount; i++) {
+                     String columnName = metaData.getColumnLabel(i);
+                     if (!columnName.equals("PHQ9_Date") && !columnName.equals("PHQ9_Score")) {
+                         clientDataMap.get(clientId).putIfAbsent(columnName, rs.getObject(columnName));
+                     }
+                 }
+
+                 // Add PHQ9_Date and PHQ9_Score with dynamic suffixes
+                 int count = dateScoreCountMap.getOrDefault(clientId, 0) + 1;
+                 dateScoreCountMap.put(clientId, count);
+                 clientDataMap.get(clientId).put("PHQ9_Date_" + count, rs.getString("PHQ9_Date"));
+                 clientDataMap.get(clientId).put("PHQ9_Score_" + count, rs.getString("PHQ9_Score"));
+             }
+
+             // Write to CSV
+             // Step 1: Generate headers
+             Set<String> headers = new LinkedHashSet<>();
+             clientDataMap.values().forEach(record -> headers.addAll(record.keySet()));
 
 
+             csvWriter.append(String.join(",", headers));
+             csvWriter.append("\n");
 
+             // Step 2: Write rows
+             for (Map<String, Object> record : clientDataMap.values()) {
+            	    List<String> row = new ArrayList<>();
+            	    for (String header : headers) {
+            	        Object value = record.getOrDefault(header, ""); // Default to "" if key is missing
+            	        row.add(value != null ? value.toString() : ""); // Ensure null-safe conversion to String
+            	    }
+            	    csvWriter.append(String.join(";", row));
+            	    csvWriter.append("\n");
+            	}
 
-    public static void main(String[] args) {
-        // Example usage
+             System.out.println("CSV file generated successfully at: ");
+
+         }
+
+     
+
+    public static void main(String[] args) throws SQLException, IOException {
+        Properties prop = new Properties();
+        String configFilePath = "C:\\Users\\SFriedman\\eclipse-workspace\\PHQ9-Updater\\application-qa.properties";
+		FileInputStream fis = null;
+
+		fis = new FileInputStream(configFilePath);
+		prop.load(fis);
+    	DatabaseHelper dbHelper = new DatabaseHelper(prop);
+    	dbHelper.flattenPHQ9Results(dbHelper.masterChildPHQ9Query);
+    	
      
 
 

@@ -30,52 +30,30 @@ public class PQH9DoucsignApplication {
 	// look up 
 
 	public static void main(String[] args) throws Exception {
-		// TODO Auto-generated method stub
-
-		// get 
-
+	
 		String configFilePath = args[0];
 		Properties prop = new Properties();
 		FileInputStream fis = null;
-		try {
-			fis = new FileInputStream(configFilePath);
-		} catch (FileNotFoundException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		try {
-			prop.load(fis);
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+
+		fis = new FileInputStream(configFilePath);
+
+		prop.load(fis);
+
 		String appFilePath = args[1];
 		Properties applicationProps = new Properties();
 
-		try {
-			fis = new FileInputStream(appFilePath);
-		} catch (FileNotFoundException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		try {
-			applicationProps.load(fis);
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+		fis = new FileInputStream(appFilePath);
 
-
+		applicationProps.load(fis);
 
 		DocusignEnvelopeStatusAPI api = new DocusignEnvelopeStatusAPI();
-
 
 		String token = api.getAccessToken(configFilePath);
 		System.out.println(token);
 
 		//getAllEnvelopes(token, "https://na4.docusign.net//restapi/v2.1/accounts/6543288/");
 		String API =  "/envelopes?from_date=";
-		fetchAllEnvelopes(token, prop.getProperty("baseURL"),"2024-05-26T00:00:00Z", "2024-12-11T23:59:59Z", applicationProps, API, false );
+		fetchAllEnvelopes(token, prop.getProperty("baseURL"),"2024-06-02T00:00:00Z", "2024-12-19T23:59:59Z", applicationProps, API, false );
 		//API =  "/envelopes?from_date=";
 		//fetchAllEnvelopes(token, prop.getProperty("baseURL"),"2024-05-26T00:00:00Z", "2024-12-11T23:59:59Z", applicationProps, API, false );
 		
@@ -348,14 +326,20 @@ public class PQH9DoucsignApplication {
 
 		// Define scores for each radio option (assuming each radio button has a score associated with its value)
 		Map<String, Integer> radioScores = new HashMap<>();
-		radioScores.put("Radio1", 0);  // Example: Radio1 has a score of 1
-		radioScores.put("Radio2", 1);  // Example: Radio2 has a score of 2
-		radioScores.put("Radio3", 2);  // Example: Radio3 has a score of 3
-		radioScores.put("Radio4", 3);  // Example: Radio4 has a score of 4
+		radioScores.put("Radio1", 0);  // Example: Radio1 has a score of 0
+		radioScores.put("Radio2", 1);  // Example: Radio2 has a score of 1
+		radioScores.put("Radio3", 2);  // Example: Radio3 has a score of 2
+		radioScores.put("Radio4", 3);  // Example: Radio4 has a score of 3
 
-		// Iterate over each radio group
+		// Iterate over each radio group, except for the last one which is not part of the score
 		for (int i = 0; i < radioGroupTabs.length(); i++) {
 			JSONObject radioGroup = radioGroupTabs.getJSONObject(i);
+			
+
+			if ("PHQ9Difficulty".equals(radioGroup.optString("groupName"))) {
+				System.out.println("We don't want to process the difficulty radio score");
+				continue;
+			}
 			JSONArray radios = radioGroup.getJSONArray("radios");
 
 			// Iterate over each radio button in the group
@@ -463,11 +447,15 @@ public class PQH9DoucsignApplication {
 						else
 							System.out.println("Already in master");
 						String jsonData = getDocumentData(accessToken, BASE_URL, envelope.getString("envelopeId"), documentID  );
-						childRecord.setPhqScore(computeScore(jsonData));
-
+						
+						PHQScore phqScore = new PHQScore();
+						childRecord.setPhqScore(phqScore.  computeScore(jsonData));
+						childRecord.setBulk(true);
+						System.out.println("Computed score " + childRecord.getPhqScore());
+			
 
 						System.out.println(computeScore(jsonData));
-						if (! dbHelper.doesEnvelopeIdExist(childRecord.getEnvelopeId()))
+						if (! dbHelper.doesEnvelopeIdExist(childRecord.getEnvelopeId(), phqe.getClientId()))
 						{
 							dbHelper.insertIntoPhqResults(childRecord);
 						}
@@ -587,7 +575,7 @@ public class PQH9DoucsignApplication {
 
 
 						System.out.println(computeScore(jsonData));
-						if (! dbHelper.doesEnvelopeIdExist(childRecord.getEnvelopeId()))
+						if (! dbHelper.doesEnvelopeIdExist(childRecord.getEnvelopeId(), phqe.getClientId()))
 						{
 							dbHelper.insertIntoPhqResults(childRecord);
 						}

@@ -7,20 +7,32 @@ public class PHQMany {
     private Date signedDate;
     private String envelopeId = "";
     private String clientId = "";
-    private int phqScore = 0;
+    private Integer phqScore = null;
+   
+
+	private boolean bulk = false;
 
     // Default Constructor
     public PHQMany() {}
 
     // Parameterized Constructor
-    public PHQMany(Date signedDate, String envelopeId, String clientId, int phqScore) {
+    public PHQMany(Date signedDate, String envelopeId, String clientId, int phqScore, boolean bulk) {
         this.signedDate = signedDate;
         this.envelopeId = envelopeId;
-        this.clientId = clientId;
+        this.clientId =  clientId;
         this.phqScore = phqScore;
+        this.bulk = bulk;
     }
 
     // Getters and Setters
+    
+    public boolean isBulk() {
+		return bulk;
+	}
+
+	public void setBulk(boolean bulk) {
+		this.bulk = bulk;
+	}
     public Date getSignedDate() {
         return signedDate;
     }
