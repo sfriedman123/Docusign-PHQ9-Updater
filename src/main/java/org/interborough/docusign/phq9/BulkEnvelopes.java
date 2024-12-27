@@ -36,29 +36,29 @@ public class BulkEnvelopes {
 
 	String token = "";
 
-	public static void main(String[] args) throws Exception {
-
-		String configFilePath = args[0];
-		Properties prop = new Properties();
-		FileInputStream fis = null;
-
-		fis = new FileInputStream(configFilePath);
-
-		prop.load(fis);
-
-		String appFilePath = args[1];
-		Properties applicationProps = new Properties();
-		fis = new FileInputStream(appFilePath);
-		applicationProps.load(fis);
-
-		BulkEnvelopes benvs = new BulkEnvelopes();
-		benvs.storeAccessToken(configFilePath);
-
-		List<String> bulkSendIds = benvs.fetchAllBulkSendBatches(prop.getProperty("baseURL"), configFilePath);
-		System.out.println("Fetched Bulk Send IDs: " + bulkSendIds);
-		benvs.processEnvelopes(configFilePath, prop.getProperty("baseURL"), configFilePath, applicationProps);
-
-	}
+//	public static void main(String[] args) throws Exception {
+//
+//		String configFilePath = args[0];
+//		Properties prop = new Properties();
+//		FileInputStream fis = null;
+//
+//		fis = new FileInputStream(configFilePath);
+//
+//		prop.load(fis);
+//
+//		String appFilePath = args[1];
+//		Properties applicationProps = new Properties();
+//		fis = new FileInputStream(appFilePath);
+//		applicationProps.load(fis);
+//
+//		BulkEnvelopes benvs = new BulkEnvelopes();
+//		benvs.storeAccessToken(configFilePath);
+//
+//		List<String> bulkSendIds = benvs.fetchAllBulkSendBatches(prop.getProperty("baseURL"), configFilePath);
+//		System.out.println("Fetched Bulk Send IDs: " + bulkSendIds);
+//		benvs.processEnvelopes(configFilePath, prop.getProperty("baseURL"), configFilePath, applicationProps);
+//
+//	}
 
 	/**
 	 * Fetch all bulk send batch IDs from the DocuSign API.
@@ -67,22 +67,23 @@ public class BulkEnvelopes {
 	 * @throws Exception
 	 */
 
-	public void processEnvelopes(String configFilePat, String URL, String configFilePath, Properties prop)
+	public void processEnvelopes(String configFilePat, String URL, String configFilePath, Properties prop, String fromDate)
 			throws Exception {
 		BulkEnvelopes benvs = new BulkEnvelopes();
 		benvs.storeAccessToken(configFilePath);
-		List<String> bulkSendIds = benvs.fetchAllBulkSendBatches(URL, configFilePath);
+		List<String> bulkSendIds = benvs.fetchAllBulkSendBatches(URL, configFilePath, fromDate);
 		for (String bulkId : bulkSendIds) {
 			List<String> envelopes = benvs.getEnvelopesForBatch(bulkId, URL);
 			System.out.println("Envelopes for Batch ID " + bulkId + ": " + envelopes);
 			for (String envelope : envelopes) {
 				PHQEntity phqe = new PHQEntity();
+				phqe.setOrganization(prop.getProperty("organization"));
 				PHQMany childRecord = new PHQMany();
 				childRecord.setEnvelopeId(envelope);
 
 				String json = getRecipientForEnvelope(this.token, URL, envelope);
 				String status = extractValueFromNode(json, "signedDateTime");
-				// we only want those that have been signed.rom
+				// we only want those that have been signed
 				
 				if (status != null) {
 					String sentDateTime = extractValueFromNode(json, "sentDateTime");
@@ -98,9 +99,9 @@ public class BulkEnvelopes {
 					System.out.println("ECR1: " + extractFirstECR1(allTabs));
 					if (!extractFirstECR1(allTabs).equals("")) {
 						String ECRCode = extractFirstECR1(allTabs);
-						if (ECRCode.trim().equals("158635")) {
-							System.out.println("issue");
-						}
+//						if (ECRCode.trim().equals("158635")) {
+//							System.out.println("issue");
+//						}
 
 						phqe.setClientId(extractFirstECR1(allTabs));
 						childRecord.setClientId(phqe.getClientId());
@@ -118,10 +119,10 @@ public class BulkEnvelopes {
 							else
 								System.out.println("Already in master");
 							String jsonData = getDocumentData(this.token, URL, envelope, documentID);
-							childRecord.setPhqScore(computeScore(jsonData));
+							PHQScore phqScore = new PHQScore();
+							childRecord.setPhqScore(phqScore.  computeScore(jsonData));
 							childRecord.setBulk(true);
-
-							System.out.println(computeScore(jsonData));
+							System.out.println("Computed score " + childRecord.getPhqScore());
 							if (!dbHelper.doesEnvelopeIdExist(childRecord.getEnvelopeId(), phqe.getClientId())) {
 								dbHelper.insertIntoPhqResults(childRecord);
 							} else
@@ -201,53 +202,7 @@ public class BulkEnvelopes {
 		return signerDetails;
 	}
 
-	public static int computeScore(String jsonData) {
-		// Parse the input JSON string to get the radioGroupTabs array
-		JSONArray radioGroupTabs = new JSONObject(jsonData).getJSONArray("radioGroupTabs");
 
-		// Initialize the total score
-		int totalScore = 0;
-
-		// Define scores for each radio option (assuming each radio button has a score
-		// associated with its value)
-		Map<String, Integer> radioScores = new HashMap<>();
-		radioScores.put("Radio1", 0); // Example: Radio1 has a score of 0
-		radioScores.put("Radio2", 1); // Example: Radio2 has a score of 1
-		radioScores.put("Radio3", 2); // Example: Radio3 has a score of 2
-		radioScores.put("Radio4", 3); // Example: Radio4 has a score of 3
-
-		// Iterate over each radio group
-		// We want to skip the last set of radio buttons which a question about
-		// difficulty
-		for (int i = 0; i < radioGroupTabs.length() - 1; i++) {
-
-			JSONObject radioGroup = radioGroupTabs.getJSONObject(i);
-
-			if ("PHQ9Difficulty".equals(radioGroup.optString("groupName"))) {
-				System.out.println("We don't want to process the difficulty radio score");
-				continue;
-			}
-
-			JSONArray radios = radioGroup.getJSONArray("radios");
-
-			// Iterate over each radio button in the group
-			for (int j = 0; j < radios.length(); j++) {
-				JSONObject radio = radios.getJSONObject(j);
-
-				// Check if the radio button is selected
-				if (radio.getString("selected").equals("true")) {
-					String radioValue = radio.getString("value");
-
-					// Add the score for the selected radio to the total score
-					if (radioScores.containsKey(radioValue)) {
-						totalScore += radioScores.get(radioValue);
-					}
-				}
-			}
-		}
-
-		return totalScore;
-	}
 
 	public static String findDocumentIdByName(String jsonString, String documentName) {
 		try {
@@ -416,7 +371,7 @@ public class BulkEnvelopes {
 
 		this.token = api.getAccessToken(configFilePath);
 		System.out.println(token);
-		String url = URL + "/bulk_send_batch?from_date=2024-06-01";
+		String url = URL + "/bulk_send_batch?from_date=2024-07-01";
 
 		String response = makeApiCall(url);
 		System.out.println(response);
@@ -505,10 +460,10 @@ public class BulkEnvelopes {
 
 	}
 
-	public List<String> fetchAllBulkSendBatches(String URL, String configFilePath) throws Exception {
+	public List<String> fetchAllBulkSendBatches(String URL, String configFilePath, String fromDate) throws Exception {
 		List<String> allBatchIds = new ArrayList<>();
 
-		String url = URL + "/bulk_send_batch?from_date=2024-06-02";
+		String url = URL + "/bulk_send_batch?from_date=" + fromDate + "&status=sent";
 
 		while (url != null && !url.isEmpty()) {
 			String response = makeApiCall(url);

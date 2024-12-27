@@ -11,6 +11,7 @@ import java.sql.Date;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -29,6 +30,8 @@ public class PQH9DoucsignApplication {
 	// fech all envelopes.  
 	// look up 
 
+	final static String API =  "/envelopes?from_date=";
+	final static String fromDate =  "2024-07-01"; 
 	public static void main(String[] args) throws Exception {
 	
 		String configFilePath = args[0];
@@ -50,17 +53,25 @@ public class PQH9DoucsignApplication {
 
 		String token = api.getAccessToken(configFilePath);
 		System.out.println(token);
+		ZonedDateTime utcNow = ZonedDateTime.now(ZoneOffset.UTC);
 
-		//getAllEnvelopes(token, "https://na4.docusign.net//restapi/v2.1/accounts/6543288/");
-		String API =  "/envelopes?from_date=";
-		fetchAllEnvelopes(token, prop.getProperty("baseURL"),"2024-06-02T00:00:00Z", "2024-12-19T23:59:59Z", applicationProps, API, false );
-		//API =  "/envelopes?from_date=";
-		//fetchAllEnvelopes(token, prop.getProperty("baseURL"),"2024-05-26T00:00:00Z", "2024-12-11T23:59:59Z", applicationProps, API, false );
+        // Format the date and time to the desired format
+        String formattedDate = utcNow.format(DateTimeFormatter.ISO_INSTANT);
 		
-
-		//String json = getRecipientForEnvelope(token, "https://na4.docusign.net//restapi/v2.1/accounts/6543288/", "EB39B875-DC39-4D53-864F-9D4015849770");
-
-
+        // Doesn't look like we have any docusign phq9 before this date.
+	
+	
+		fetchAllEnvelopes(token, prop.getProperty("baseURL"),fromDate, formattedDate, applicationProps, API, false,  prop);
+		
+		// Bulk has to use a different Docusign API
+		
+//		BulkEnvelopes benvs = new BulkEnvelopes();
+//		benvs.storeAccessToken(configFilePath);
+//		
+//		List<String> bulkSendIds = benvs.fetchAllBulkSendBatches(prop.getProperty("baseURL"), configFilePath, fromDate);
+//		System.out.println("Fetched Bulk Send IDs: " + bulkSendIds);
+//		benvs.processEnvelopes(configFilePath, prop.getProperty("baseURL"), configFilePath, applicationProps, fromDate);
+		
 	}
 
 	public static String findDocumentIdByName(String jsonString, String documentName) {
@@ -236,7 +247,6 @@ public class PQH9DoucsignApplication {
 
 	}
 	
-
 	public static String getDocumentsForEnvelopes(String accessToken, String BASE_URL, String envelopeId)
 			throws IOException, InterruptedException {
 
@@ -317,74 +327,16 @@ public class PQH9DoucsignApplication {
 
 		return value; // Return null if no ECR1 tab is found
 	}
-	public static int computeScore(String jsonData) {
-		// Parse the input JSON string to get the radioGroupTabs array
-		JSONArray radioGroupTabs = new JSONObject(jsonData).getJSONArray("radioGroupTabs");
-
-		// Initialize the total score
-		int totalScore = 0;
-
-		// Define scores for each radio option (assuming each radio button has a score associated with its value)
-		Map<String, Integer> radioScores = new HashMap<>();
-		radioScores.put("Radio1", 0);  // Example: Radio1 has a score of 0
-		radioScores.put("Radio2", 1);  // Example: Radio2 has a score of 1
-		radioScores.put("Radio3", 2);  // Example: Radio3 has a score of 2
-		radioScores.put("Radio4", 3);  // Example: Radio4 has a score of 3
-
-		// Iterate over each radio group, except for the last one which is not part of the score
-		for (int i = 0; i < radioGroupTabs.length(); i++) {
-			JSONObject radioGroup = radioGroupTabs.getJSONObject(i);
-			
-
-			if ("PHQ9Difficulty".equals(radioGroup.optString("groupName"))) {
-				System.out.println("We don't want to process the difficulty radio score");
-				continue;
-			}
-			JSONArray radios = radioGroup.getJSONArray("radios");
-
-			// Iterate over each radio button in the group
-			for (int j = 0; j < radios.length(); j++) {
-				JSONObject radio = radios.getJSONObject(j);
-
-				// Check if the radio button is selected
-				if (radio.getString("selected").equals("true")) {
-					String radioValue = radio.getString("value");
-
-					// Add the score for the selected radio to the total score
-					if (radioScores.containsKey(radioValue)) {
-						totalScore += radioScores.get(radioValue);
-					}
-				}
-			}
-		}
-
-		return totalScore;
-	}
-
-
-	
-	public static List<JSONObject> fetchAllEnvelopes(String accessToken, String BASE_URL, String fromDate, String toDate,Properties prop, String API, boolean bulk ) throws Exception {
+	public static List<JSONObject> fetchAllEnvelopes(String accessToken, String BASE_URL, String fromDate, String toDate,Properties prop, String API, boolean bulk, Properties configProps ) throws Exception {
 
 		List<JSONObject> allEnvelopes = new ArrayList<>();
 
 		HttpClient client = HttpClient.newHttpClient();
-
-		LocalDateTime thirtyDaysAgo = LocalDateTime.now().minusDays(30);
-
-		// Convert to ISO 8601 format
-		String formattedDate = thirtyDaysAgo.atOffset(ZoneOffset.UTC).format(DateTimeFormatter.ISO_DATE_TIME);
-		String urlForAPI = BASE_URL + formattedDate;
-		System.out.println(urlForAPI);
-		String endpoint = BASE_URL + API + fromDate + "&" + "to_Date=" + toDate + "&&status=completed";
-
+		String endpoint = BASE_URL + API + fromDate + "&" + "to_Date=" + toDate + "&status=completed&order_by=sent";
 		String nextUri = endpoint;
-
-		// System.out.println("Envelope Status: " + jsonResponse.getString("status"));
-
 		while (! (nextUri.equals(""))) {
 			// Fetch data from the current endpoint
 			System.out.println(endpoint);
-
 
 			HttpRequest request = HttpRequest.newBuilder()
 
@@ -395,19 +347,19 @@ public class PQH9DoucsignApplication {
 			System.out.println(response.statusCode());
 
 			System.out.println(response.body());
-
 			JSONObject responseBody = new JSONObject(response.body());
 			JSONArray envelopes = responseBody.getJSONArray("envelopes");
-
 			// Process each envelope
 			for (int i = 0; i < envelopes.length(); i++) {
 				JSONObject envelope = envelopes.getJSONObject(i);
 				System.out.println("Envelope ID: " + envelope.getString("envelopeId"));
 
 				PHQEntity phqe = new PHQEntity();
+				
+				// let's populate the location from the properties file
+				phqe.setOrganization(configProps .getProperty("organization"));				
 				PHQMany childRecord = new PHQMany();
 				childRecord.setEnvelopeId( envelope.getString("envelopeId"));
-
 
 				String json = getRecipientForEnvelope(accessToken, BASE_URL, envelope.getString("envelopeId"));
 				String signedDate =  extractValueFromNode(json, "signedDateTime");
@@ -419,13 +371,12 @@ public class PQH9DoucsignApplication {
 
 				System.out.println("signed date:" + signedDate + "envelopeid: " +   envelope.getString("envelopeId"));
 				//phqe.setClientName(json);
-
 				String allTabs = getTabs(accessToken, BASE_URL, envelope.getString("envelopeId") );
 				//String signedDate =  extractSignedDate();
-
 				//System.out.println("signed date:" + signedDate);
 				System.out.println("ECR1: " + extractFirstECR1(allTabs ));
-				if (! extractFirstECR1(allTabs ).equals("") )
+				String ECR = extractFirstECR1(allTabs );
+				if (! ECR.equals("") &&  (ECR.matches("-?\\d+") ))
 				{
 					phqe.setClientId(extractFirstECR1(allTabs));
 					childRecord.setClientId(phqe.getClientId());
@@ -450,11 +401,9 @@ public class PQH9DoucsignApplication {
 						
 						PHQScore phqScore = new PHQScore();
 						childRecord.setPhqScore(phqScore.  computeScore(jsonData));
-						childRecord.setBulk(true);
+						childRecord.setBulk(false);
 						System.out.println("Computed score " + childRecord.getPhqScore());
-			
-
-						System.out.println(computeScore(jsonData));
+				
 						if (! dbHelper.doesEnvelopeIdExist(childRecord.getEnvelopeId(), phqe.getClientId()))
 						{
 							dbHelper.insertIntoPhqResults(childRecord);
@@ -470,7 +419,6 @@ public class PQH9DoucsignApplication {
 				}
 
 			}
-
 			// Get the next URI for pagination
 			nextUri = responseBody.optString("nextUri", null);
 			System.out.println("endpoint: " + nextUri);
@@ -482,175 +430,6 @@ public class PQH9DoucsignApplication {
 			}
 
 		}
-
-		return allEnvelopes;
-	}
-	
-	
-	public static List<JSONObject> fetchAllBulkEnvelopes(String accessToken, String BASE_URL, String fromDate, String toDate,Properties prop, String API, boolean bulk ) throws Exception {
-
-		List<JSONObject> allEnvelopes = new ArrayList<>();
-
-		HttpClient client = HttpClient.newHttpClient();
-
-		LocalDateTime thirtyDaysAgo = LocalDateTime.now().minusDays(30);
-
-		// Convert to ISO 8601 format
-		String formattedDate = thirtyDaysAgo.atOffset(ZoneOffset.UTC).format(DateTimeFormatter.ISO_DATE_TIME);
-		String urlForAPI = BASE_URL + formattedDate;
-		System.out.println(urlForAPI);
-		String endpoint = BASE_URL + API + fromDate + "&" + "to_Date=" + toDate + "&&status=completed";
-
-		String nextUri = endpoint;
-
-		// System.out.println("Envelope Status: " + jsonResponse.getString("status"));
-
-		while (! (nextUri.equals(""))) {
-			// Fetch data from the current endpoint
-			System.out.println(endpoint);
-
-
-			HttpRequest request = HttpRequest.newBuilder()
-
-					.uri(URI.create(endpoint))
-					.header("Authorization", "Bearer " + accessToken).header("Accept", "application/json").build();
-
-			HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-			System.out.println(response.statusCode());
-
-			System.out.println(response.body());
-
-			JSONObject responseBody = new JSONObject(response.body());
-			JSONArray envelopes = responseBody.getJSONArray("envelopes");
-
-			// Process each envelope
-			for (int i = 0; i < envelopes.length(); i++) {
-				JSONObject envelope = envelopes.getJSONObject(i);
-				System.out.println("Envelope ID: " + envelope.getString("envelopeId"));
-
-				PHQEntity phqe = new PHQEntity();
-				PHQMany childRecord = new PHQMany();
-				childRecord.setEnvelopeId( envelope.getString("envelopeId"));
-
-
-				String json = getRecipientForEnvelope(accessToken, BASE_URL, envelope.getString("envelopeId"));
-				String signedDate =  extractValueFromNode(json, "signedDateTime");
-				Instant instant = Instant.parse(signedDate);
-
-				// Convert Instant to SQL Date
-				childRecord.setSignedDate(new Date(instant.toEpochMilli()));
-				//String envelopeID =  extractValueFromNode(json, "envelopeId");
-
-				System.out.println("signed date:" + signedDate + "envelopeid: " +   envelope.getString("envelopeId"));
-				//phqe.setClientName(json);
-
-				String allTabs = getTabs(accessToken, BASE_URL, envelope.getString("envelopeId") );
-				//String signedDate =  extractSignedDate();
-
-				//System.out.println("signed date:" + signedDate);
-				System.out.println("ECR1: " + extractFirstECR1(allTabs ));
-				if (! extractFirstECR1(allTabs ).equals("") )
-				{
-					phqe.setClientId(extractFirstECR1(allTabs));
-					childRecord.setClientId(phqe.getClientId());
-
-					QueryExecutor qe = new QueryExecutor(prop);
-					qe.executeQuery(prop, extractFirstECR1(allTabs), phqe);
-
-					String JsonData = getDocumentsForEnvelopes(accessToken, BASE_URL, envelope.getString("envelopeId"));
-
-					String documentID = findDocumentIdByName(JsonData, "PHQ9");
-
-					if (documentID != null)
-					{
-						System.out.println("FOUND PHQ");	
-						System.out.println(documentID);
-						DatabaseHelper dbHelper = new DatabaseHelper(prop);
-						if (! dbHelper.doesClientIdExist(phqe.getClientId()))
-							dbHelper.insertIntoDocusignPhq9Master(phqe);
-						else
-							System.out.println("Already in master");
-						String jsonData = getDocumentData(accessToken, BASE_URL, envelope.getString("envelopeId"), documentID  );
-						childRecord.setPhqScore(computeScore(jsonData));
-
-
-						System.out.println(computeScore(jsonData));
-						if (! dbHelper.doesEnvelopeIdExist(childRecord.getEnvelopeId(), phqe.getClientId()))
-						{
-							dbHelper.insertIntoPhqResults(childRecord);
-						}
-						{
-							System.out.println("this envelope exists.  Not writing it to the database");
-						}
-
-					}
-					else
-
-						System.out.println("NO PHQ");
-				}
-
-			}
-
-			// Get the next URI for pagination
-			nextUri = responseBody.optString("nextUri", null);
-			System.out.println("endpoint: " + nextUri);
-
-			endpoint = "https://na4.docusign.net//restapi/v2.1" + nextUri;
-			System.out.println("endpoint: " + endpoint);
-			if (! (nextUri.equals(""))) {
-				System.out.println("Fetching next page: " + nextUri);
-			}
-
-		}
-
-		return allEnvelopes;
-	}
-
-	public static List<String> fetchAllEnvelopes2(String accessToken, String BASE_URL) throws Exception {
-		String endpoint = BASE_URL +  "/envelopes?from_date=2024-11-29T00:00:00Z&to_date=2024-12-04T23:59:59Z&&status=completed";
-		List<String> allEnvelopes = new ArrayList<>();
-
-		HttpClient client = HttpClient.newHttpClient();
-
-		while (endpoint != null) {
-			// Build the full URL
-			String url = BASE_URL + endpoint;
-
-			// Prepare the request
-			HttpRequest request = HttpRequest.newBuilder()
-					.uri(URI.create(url))
-					.header("Authorization", "Bearer " + accessToken)
-					.header("Content-Type", "application/json")
-					.GET()
-					.build();
-
-			// Send the request
-			HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-			System.out.println(response.statusCode());
-
-
-			//			if (response.statusCode() != 200) {
-			//				throw new RuntimeException("Failed: HTTP error code : " + response.statusCode());
-			//			}
-
-			// Parse the response to extract envelopes and nextUri
-			String responseBody = response.body();
-			String[] lines = responseBody.split("\\n"); // Quick way to split for plain text
-			for (String line : lines) {
-				if (line.contains("\"envelopeId\":")) {
-					// Extract envelopeId and add it to the list
-					String envelopeId = extractValue(line, "\"envelopeId\":");
-					allEnvelopes.add(envelopeId);
-				}
-			}
-
-			// Find nextUri
-			endpoint = extractValue(responseBody, "\"nextUri\":");
-			if (endpoint != null) {
-				endpoint = endpoint.replace("\\", "").replace("\"", ""); // Clean up URI
-			}
-		}
-
 		return allEnvelopes;
 	}
 	

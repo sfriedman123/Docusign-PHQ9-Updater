@@ -67,18 +67,21 @@ public class QueryExecutor {
 				) {
 			System.out.println("Connected to the database!");
 			while (resultSet.next()) {
-				int staffId = resultSet.getInt("staff_id");
+				//int staffId = resultSet.getInt("staff_id");
+				
 				String fullName = resultSet.getString("full_name");
-				String currentCredential = resultSet.getString("current_credential");
-				phqe.setStaffName(fullName);
+				//String currentCredential = resultSet.getString("current_credential");
+				//phqe.setStaffName(fullName);
 				phqe.setClientName(resultSet.getString("last_name") + "," + resultSet.getString("first_name")  );
-				phqe.setCredentials(currentCredential);
-				phqe.setOrganization(resultSet.getString("name"));
+				
+				//phqe.setCredentials(currentCredential);
+				// we will take the organization from the properties file
+				//phqe.setOrganization(props.getProperty("organization"));
 
 
 				// Print results
-				System.out.printf("Staff ID: %d, Full Name: %s, Current Credential: %s%n",
-						staffId, fullName, currentCredential);
+				System.out.printf("Full Name: %s",
+					 fullName);
 			}
 
 		} catch (Exception e) {
