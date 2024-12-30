@@ -27,6 +27,7 @@ public class PHQ9ResultsFlattener {
                 Map<String, String> scoreData = new HashMap<>();
                 scoreData.put("PHQ9_Date", rs.getString("PHQ9_Date"));
                 scoreData.put("PHQ9_Score", rs.getString("PHQ9_Score"));
+                scoreData.put("EnvelopeID", rs.getString("EnvelopeID")); // Add EnvelopeID
 
                 // Add score data for this client
                 clientDataMap.get(clientId).add(scoreData);
@@ -41,6 +42,7 @@ public class PHQ9ResultsFlattener {
                 for (int i = 0; i < scores.size(); i++) {
                     flattenedRow.append(", PHQ9_Date_").append(i + 1).append(": ").append(scores.get(i).get("PHQ9_Date"));
                     flattenedRow.append(", PHQ9_Score_").append(i + 1).append(": ").append(scores.get(i).get("PHQ9_Score"));
+                    flattenedRow.append(", EnvelopeID_").append(i + 1).append(": ").append(scores.get(i).get("EnvelopeID")); // Add EnvelopeID to the flattened output
                 }
                 System.out.println(flattenedRow);
             }

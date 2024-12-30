@@ -201,63 +201,84 @@ public class DatabaseHelper {
 		ResultSet rs = stmt.executeQuery(query);
 
 		// LinkedHashMap to maintain insertion order for Client_IDs
-		Map<String, Map<String, Object>> clientDataMap = new LinkedHashMap<>();
+	
+		Map<String, List<Map<String, String>>> clientDataMap = new LinkedHashMap<>();
+        Map<String, Map<String, String>> clientDataDetails = new HashMap<>(); // For Client_Name and Client_Organization
 
-		// Store unique PHQ9_Date and PHQ9_Score count for dynamic columns
-		Map<String, Integer> dateScoreCountMap = new HashMap<>();
+       
+            ResultSetMetaData metaData = rs.getMetaData();
+            int columnCount = metaData.getColumnCount();
 
-		// Process ResultSet
-		ResultSetMetaData metaData = rs.getMetaData();
-		int columnCount = metaData.getColumnCount();
-		FileWriter csvWriter = new FileWriter("c:/temp/abc.csv");
+            while (rs.next()) {
+                String clientId = rs.getString("Client_ID");
+                clientDataMap.putIfAbsent(clientId, new ArrayList<>());
 
-		while (rs.next()) {
-			String clientId = rs.getString("Client_ID");
-			if (clientId.trim().equals("159611"))
-			{
-				System.out.println("stop here");
-			}
+                // Store PHQ9 and EnvelopeID details
+                Map<String, String> scoreData = new HashMap<>();
+                scoreData.put("PHQ9_Date", rs.getString("PHQ9_Date"));
+                scoreData.put("PHQ9_Score", rs.getString("PHQ9_Score"));
+                scoreData.put("EnvelopeID", rs.getString("EnvelopeID"));
 
+                clientDataMap.get(clientId).add(scoreData);
 
+                // Store client details
+                clientDataDetails.putIfAbsent(clientId, new HashMap<>());
+                clientDataDetails.get(clientId).put("Client_Name", rs.getString("Client_Name"));
+                clientDataDetails.get(clientId).put("created_by", rs.getString("staffName")); // Added
+                clientDataDetails.get(clientId).put("current_credential", rs.getString("current_credential")); // Added
+                clientDataDetails.get(clientId).put("Client_Organization", rs.getString("Organization"));
+            }
 
-			clientDataMap.putIfAbsent(clientId, new LinkedHashMap<>());
+            // Write data to CSV
+            try (FileWriter csvWriter1 = new FileWriter("c:/temp/output.csv")) {
+                // Write headers
+                csvWriter1.append("created_by;current_credential;Client_ID;Client_Name;Client_Organization;");
+                int maxScores = clientDataMap.values().stream().mapToInt(List::size).max().orElse(0);
+                for (int i = 1; i <= maxScores; i++) {
+                    csvWriter1.append("PHQ9_Date_" + i + ";");
+                    csvWriter1.append("PHQ9_Score_" + i + ";");
+                    csvWriter1.append("EnvelopeID_" + i + ";");
+                }
+                csvWriter1.append("\n");
 
-			// Add all fields except PHQ9_Date and PHQ9_Score to the map
-			for (int i = 1; i <= columnCount; i++) {
-				String columnName = metaData.getColumnLabel(i);
-				if (!columnName.equals("PHQ9_Date") && !columnName.equals("PHQ9_Score")) {
-					clientDataMap.get(clientId).putIfAbsent(columnName, rs.getObject(columnName));
-				}
-			}
+                // Write client data
+                for (Map.Entry<String, List<Map<String, String>>> entry : clientDataMap.entrySet()) {
+                    String clientId = entry.getKey();
+                    List<Map<String, String>> scores = entry.getValue();
 
-			// Add PHQ9_Date and PHQ9_Score with dynamic suffixes
-			int count = dateScoreCountMap.getOrDefault(clientId, 0) + 1;
-			dateScoreCountMap.put(clientId, count);
-			clientDataMap.get(clientId).put("PHQ9_Date_" + count, rs.getString("PHQ9_Date"));
-			clientDataMap.get(clientId).put("PHQ9_Score_" + count, rs.getString("PHQ9_Score"));
-		}
+                    Map<String, String> clientDetails = clientDataDetails.getOrDefault(clientId, new HashMap<>());
+                    String createdBy = clientDetails.getOrDefault("created_by", "");
+                    String currentCredential = clientDetails.getOrDefault("current_credential", "");
+                    String clientName = clientDetails.getOrDefault("Client_Name", "");
+                    String clientOrganization = clientDetails.getOrDefault("Client_Organization", "");
 
-		// Write to CSV
-		// Step 1: Generate headers
-		Set<String> headers = new LinkedHashSet<>();
-		clientDataMap.values().forEach(record -> headers.addAll(record.keySet()));
+                    // Start row with created_by, current_credential, and Client_ID
+                    StringBuilder flattenedRow = new StringBuilder(createdBy)
+                            .append(";").append(currentCredential)
+                            .append(";").append(clientId)
+                            .append(";").append(clientName)
+                            .append(";").append(clientOrganization);
 
+                    // Add PHQ9 data and EnvelopeID for this client
+                    for (int i = 0; i < maxScores; i++) {
+                        if (i < scores.size()) {
+                            flattenedRow.append(";").append(scores.get(i).getOrDefault("PHQ9_Date", ""))
+                                    .append(";").append(scores.get(i).getOrDefault("PHQ9_Score", ""))
+                                    .append(";").append(scores.get(i).getOrDefault("EnvelopeID", ""));
+                        } else {
+                            flattenedRow.append(";;;"); // Fill missing columns
+                        }
+                    }
 
-		csvWriter.append(String.join(";", headers));
-		csvWriter.append("\n");
+                    // Write the row to the CSV file
+                    csvWriter1.append(flattenedRow.toString()).append("\n");
+                }
+            }
 
-		// Step 2: Write rows
-		for (Map<String, Object> record : clientDataMap.values()) {
-			List<String> row = new ArrayList<>();
-			for (String header : headers) {
-				Object value = record.getOrDefault(header, ""); // Default to "" if key is missing
-				row.add(value != null ? value.toString() : ""); // Ensure null-safe conversion to String
-			}
-			csvWriter.append(String.join(";", row));
-			csvWriter.append("\n");
-		}
+            System.out.println("CSV writing completed.");
 
-		System.out.println("CSV file generated successfully at: ");
+       
+    
 
 	}
 
