@@ -129,23 +129,32 @@
     <version>1.7</version>
 </dependency>
 
+    <dependency>
+            <groupId>com.sun.mail</groupId>
+            <artifactId>jakarta.mail</artifactId>
+            <version>1.6.7</version>
+        </dependency>
+
+        <!-- Dependency for handling attachments (Jakarta Activation) -->
+        <dependency>
+            <groupId>com.sun.activation</groupId>
+            <artifactId>jakarta.activation</artifactId>
+            <version>1.2.2</version>
+        </dependency>
+
 
 	</dependencies>
 
-	<build>
-		<plugins>
-			<plugin>
-				<groupId>org.springframework.boot</groupId>
-				<artifactId>spring-boot-maven-plugin</artifactId>
-			</plugin>
-			<plugin>
+<build>
+    <plugins>
+        <plugin>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-maven-plugin</artifactId>
             <configuration>
-                <mainClass>org.interborough.docusign.phq9.MySpringBootApplication</mainClass>
+                <mainClass>org.interborough.docusign.phq9.PQH9DocusignApplication</mainClass>
             </configuration>
         </plugin>
-		</plugins>
-	</build>
+    </plugins>
+</build>
 
 </project>
