@@ -24,7 +24,7 @@ public class QueryExecutor {
 	}
 
 	// Method to execute the query and display results
-	public void executeQuery(Properties props, String client_id, PHQEntity phqe) {
+	public void executeQuery(Properties props, String client_id, DemoGraphicsEntity phqe) {
 		// Database connection details
 
 

@@ -76,9 +76,9 @@ public class BulkEnvelopes {
 			List<String> envelopes = benvs.getEnvelopesForBatch(bulkId, URL);
 			System.out.println("Envelopes for Batch ID " + bulkId + ": " + envelopes);
 			for (String envelope : envelopes) {
-				PHQEntity phqe = new PHQEntity();
+				DemoGraphicsEntity phqe = new DemoGraphicsEntity();
 				phqe.setOrganization(prop.getProperty("organization"));
-				PHQMany childRecord = new PHQMany();
+				DemograhpicsMany childRecord = new DemograhpicsMany();
 				childRecord.setEnvelopeId(envelope);
 
 				String json = getRecipientForEnvelope(this.token, URL, envelope);
@@ -119,7 +119,7 @@ public class BulkEnvelopes {
 							else
 								System.out.println("Already in master");
 							String jsonData = getDocumentData(this.token, URL, envelope, documentID);
-							PHQScore phqScore = new PHQScore();
+							DemographicsScores phqScore = new DemographicsScores();
 							childRecord.setPhqScore(phqScore.  computeScore(jsonData));
 							childRecord.setBulk(true);
 							System.out.println("Computed score " + childRecord.getPhqScore());

@@ -33,8 +33,8 @@ public class PQH9DocusignApplication {
 
 	final static String API =  "/envelopes?from_date=";
 
-	static LocalDate threeMonthsAgo = LocalDate.now().minusMonths(3);
-	// static LocalDate threeMonthsAgo = LocalDate.now().minusDays(1);
+	//static LocalDate twoMonthsAgo = LocalDate.now().minusMonths(2);
+	static LocalDate threeMonthsAgo = LocalDate.now().minusDays(7);
 	static String fromDate = threeMonthsAgo.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
 
 	// Output the calculated date
@@ -226,34 +226,43 @@ public class PQH9DocusignApplication {
 
 	}	
 
-	public static String extractValueFromNode(String json, String nodeToFind)
-	{
-		String signedDate = null;
-		try {
+	public static String extractValueFromNode(String json, String nodeToFind) {
+	    ZonedDateTime now = ZonedDateTime.now().withZoneSameInstant(java.time.ZoneOffset.UTC);
+	    String formattedDate = now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSSS'Z'"));
+	    String signedDate = formattedDate;
 
-			ObjectMapper mapper = new ObjectMapper();
+	    try {
+	        ObjectMapper mapper = new ObjectMapper();
 
-			// Parse JSON string into a JsonNode
-			JsonNode rootNode = mapper.readTree(json);
+	        // Parse JSON string into a JsonNode
+	        JsonNode rootNode = mapper.readTree(json);
 
+	        // Navigate to "signers" array
+	        JsonNode signersNode = rootNode.path("signers");
 
-			// Navigate to "signers[0].signedDateTime"
-			JsonNode signedDateNode = rootNode.path("signers").get(0).path(nodeToFind);
+	        if (signersNode.isArray() && signersNode.size() > 0) {
+	            // Get the last signer
+	            JsonNode lastSignerNode = signersNode.get(signersNode.size() - 1);
 
+	            // Extract the desired node from the last signer
+	            JsonNode signedDateNode = lastSignerNode.path(nodeToFind);
 
-			if (!signedDateNode.isMissingNode()) {
-				signedDate = signedDateNode.asText();
-				System.out.println("Signed Date: " + signedDate);
-			} else {
-				System.out.println("signedDateTime not found!");
-			}
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
+	            if (!signedDateNode.isMissingNode()) {
+	                signedDate = signedDateNode.asText();
+	                System.out.println("Signed Date from last signer: " + signedDate);
+	            } else {
+	                System.out.println(nodeToFind + " not found in the last signer!");
+	            }
+	        } else {
+	            System.out.println("No signers found in the JSON!");
+	        }
+	    } catch (Exception e) {
+	        e.printStackTrace();
+	    }
 
-		return signedDate;
-
+	    return signedDate;
 	}
+
 
 	public static String getDocumentsForEnvelopes(String accessToken, String BASE_URL, String envelopeId)
 			throws IOException, InterruptedException {
@@ -368,83 +377,87 @@ public class PQH9DocusignApplication {
 				System.out.println("******************************************************************\n");
 				System.out.println("Start Processing Envelope ID: " + envelope.getString("envelopeId"));
 				System.out.println("Envelope ID: " + envelope.getString("envelopeId"));
-
-				PHQEntity phqe = new PHQEntity();
-
-				// let's populate the location from the properties file
-				phqe.setOrganization(configProps .getProperty("organization"));				
-				PHQMany childRecord = new PHQMany();
-				childRecord.setEnvelopeId( envelope.getString("envelopeId"));
-
-				String json = getRecipientForEnvelope(accessToken, BASE_URL, envelope.getString("envelopeId"));
-				String signedDate =  extractValueFromNode(json, "signedDateTime");
-				Instant instant = Instant.parse(signedDate);
-
-				// Convert Instant to SQL Date
-				childRecord.setSignedDate(new Date(instant.toEpochMilli()));
-				//String envelopeID =  extractValueFromNode(json, "envelopeId");
-
-				System.out.println("signed date:" + signedDate + "envelopeid: " +   envelope.getString("envelopeId"));
-				//phqe.setClientName(json);
-				String allTabs = getTabs(accessToken, BASE_URL, envelope.getString("envelopeId") );
-				//String signedDate =  extractSignedDate();
-				//System.out.println("signed date:" + signedDate);
-				System.out.println("ECR1: " + extractFirstECR1(allTabs ));
-				String ECR = extractFirstECR1(allTabs );
-				if (! ECR.equals("") &&  (ECR.matches("-?\\d+") ))
-					//if (! ECR.equals("")  )	
+				// check if envelope has been processed already
+				if (! dbHelper.isEnvelopeIdPresent(envelope.getString("envelopeId")))
 				{
-					phqe.setClientId(extractFirstECR1(allTabs));
-					childRecord.setClientId(phqe.getClientId());
 
-					QueryExecutor qe = new QueryExecutor(prop);
-					qe.executeQuery(prop, extractFirstECR1(allTabs), phqe);
+					DemoGraphicsEntity phqe = new DemoGraphicsEntity();
 
-					String JsonData = getDocumentsForEnvelopes(accessToken, BASE_URL, envelope.getString("envelopeId"));
+					// let's populate the location from the properties file
+					phqe.setOrganization(configProps .getProperty("organization"));				
+					DemograhpicsMany childRecord = new DemograhpicsMany();
+					GAD7Entity GAD7Child = new GAD7Entity();
+					childRecord.setEnvelopeId( envelope.getString("envelopeId"));
+					GAD7Child.setEnvelopeId( envelope.getString("envelopeId"));
 
-					String documentID = findDocumentIdByName(JsonData, "PHQ9");
+					String json = getRecipientForEnvelope(accessToken, BASE_URL, envelope.getString("envelopeId"));
+					String signedDate =  extractValueFromNode(json, "signedDateTime");
+					Instant instant = Instant.parse(signedDate);
 
-					if (documentID != null)
+					// Convert Instant to SQL Date
+					childRecord.setSignedDate(new Date(instant.toEpochMilli()));
+					GAD7Child.setSignedDate(new Date(instant.toEpochMilli()));
+
+					System.out.println("signed date:" + signedDate + "envelopeid: " +   envelope.getString("envelopeId"));
+
+					String allTabs = getTabs(accessToken, BASE_URL, envelope.getString("envelopeId") );
+
+					System.out.println("ECR1: " + extractFirstECR1(allTabs ));
+					String ECR = extractFirstECR1(allTabs );
+					if (! ECR.equals("") &&  (ECR.matches("-?\\d+") ))
+						//if (! ECR.equals("")  )	
 					{
-						System.out.println("FOUND PHQ");	
-						System.out.println(documentID);
+						phqe.setClientId(extractFirstECR1(allTabs));
+						childRecord.setClientId(phqe.getClientId());
+						GAD7Child.setClientId(phqe.getClientId());
+						
 
-						if (! dbHelper.doesClientIdExist(phqe.getClientId()))
-							dbHelper.insertIntoDocusignPhq9Master(phqe);
-						else
-							System.out.println("Already in master");
-						String jsonData = getDocumentData(accessToken, BASE_URL, envelope.getString("envelopeId"), documentID  );
+						QueryExecutor qe = new QueryExecutor(prop);
+						qe.executeQuery(prop, extractFirstECR1(allTabs), phqe);
+						String JsonData = getDocumentsForEnvelopes(accessToken, BASE_URL, envelope.getString("envelopeId"));		
+						DocusignDocuments docusignDocs = new DocusignDocuments();
 
-						PHQScore phqScore = new PHQScore();
-						childRecord.setPhqScore(phqScore.  computeScore(jsonData));
-						childRecord.setBulk(false);
-						System.out.println("Computed score " + childRecord.getPhqScore());
-
-						if (! dbHelper.doesEnvelopeIdExist(childRecord.getEnvelopeId(), phqe.getClientId()))
+						// check if there is a PHQ9 Document and if there is 
+						if (docusignDocs.processPHQEDocument(JsonData, dbHelper, phqe, accessToken, envelope.getString("envelopeId"), BASE_URL, childRecord))
 						{
-							dbHelper.insertIntoPhqResults(childRecord);
+							//docusignDocs.processGAD7Document (JsonData,dbHelper, phqe, accessToken, envelope.getString("envelopeId"), BASE_URL, childRecord);
+							if (! dbHelper.doesEnvelopeIdExist(childRecord.getEnvelopeId(), phqe.getClientId()))
+							{
+								dbHelper.insertIntoPhqResults(childRecord);
+								//dbHelper.updatePhqResults(childRecord);
+							}
+							else 
+							{
+								System.out.println("envelope exists for this PHQ9.  Not writing it to the database");
+							}
 						}
+						if (docusignDocs.processGAD7Document(JsonData, dbHelper, phqe, accessToken, envelope.getString("envelopeId"), BASE_URL, GAD7Child))
 						{
-							System.out.println("this envelope exists.  Not writing it to the database");
+							//docusignDocs.processGAD7Document (JsonData,dbHelper, phqe, accessToken, envelope.getString("envelopeId"), BASE_URL, childRecord);
+							if (! dbHelper.doesEnvelopeIdExistForGAD7(GAD7Child.getEnvelopeId(), phqe.getClientId()))
+							{
+								dbHelper.insertIntoGAD7Results(GAD7Child);
+								//dbHelper.updatePhqResults(childRecord);
+							}
+							else
+							{
+								System.out.println("Envelope exists for this GAD7.  Not writing it to the database");
+							}
 						}
+
 
 					}
-					else
+					else //there's an invalid ECR code in the docusign document
+					{  
+						System.out.println("Invalid ECR.  Insert into Error table");
+						dbHelper.insertPHQ9Error(ECR, signedDate,  envelope.getString("envelopeId"), phqe.getOrganization());
 
-						System.out.println("NO PHQ");
+					}
+
+					System.out.println("Finished Processiong Envelope ID: " + envelope.getString("envelopeId"));
+					System.out.println("=====================================================================\n");
+
 				}
-				else //there's an invalid ECR code in the docusign document
-				{  
-					System.out.println("Invalid ECR.  Insert into Error table");
-					dbHelper.insertPHQ9Error(ECR, signedDate,  envelope.getString("envelopeId"), phqe.getOrganization());
-
-
-
-				}
-
-				System.out.println("Finished Processiong Envelope ID: " + envelope.getString("envelopeId"));
-				System.out.println("=====================================================================\n");
-
 			}
 
 			// Get the next URI for pagination

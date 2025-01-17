@@ -24,7 +24,7 @@ public class DatabaseHelper {
 
 
 
-	Connection connection;
+	static Connection connection;
 
 	private String jdbcURL;
 	private String dbUser;
@@ -80,7 +80,7 @@ public class DatabaseHelper {
 
 	}
 
-	public void insertIntoDocusignPhq9Master(PHQEntity staffDetails) {
+	public void insertIntoDocusignPhq9Master(DemoGraphicsEntity staffDetails) {
 		String insertQuery = "INSERT INTO docusign_phq9_master (staff_name, credentials, client_id, client_name, organization) " +
 				"VALUES (?, ?, ?, ?, ?)";
 
@@ -108,7 +108,7 @@ public class DatabaseHelper {
 		}
 	}
 
-	public void insertIntoPhqResults(PHQMany phqDetails) {
+	public void insertIntoPhqResults(DemograhpicsMany phqDetails) {
 		String insertQuery = "INSERT INTO docusign_phq9_results (PHQ9_date, envelopeID, client_id, phq9_score, isbulk) " +
 				"VALUES (?, ?, ?, ?, ?)";
 
@@ -122,7 +122,6 @@ public class DatabaseHelper {
 			preparedStatement.setInt(4, phqDetails.getPhqScore());
 			preparedStatement.setBoolean (5, phqDetails.isBulk());
 
-
 			// Execute the insert statement
 			int rowsInserted = preparedStatement.executeUpdate();
 
@@ -134,6 +133,64 @@ public class DatabaseHelper {
 			e.printStackTrace();
 		}
 	}
+	
+	
+	public void insertIntoGAD7Results(GAD7Entity gadDetails) {
+		String insertQuery = "INSERT INTO docusign_gad7_results (GAD7_date, envelopeID, client_id, GAD7_score) " +
+				"VALUES (?, ?, ?, ?)";
+
+		try (Connection connection = DriverManager.getConnection(jdbcURL, dbUser, DB_PASSWORD);
+				PreparedStatement preparedStatement = connection.prepareStatement(insertQuery)) {
+
+			// Set the values for the prepared statement
+			preparedStatement.setDate(1, gadDetails.getSignedDate());
+			preparedStatement.setString(2, gadDetails.getEnvelopeId());
+			preparedStatement.setString(3, gadDetails.getClientId());
+			preparedStatement.setInt(4,gadDetails.getGAD7Score());
+	
+			// Execute the insert statement
+			int rowsInserted = preparedStatement.executeUpdate();
+
+			if (rowsInserted > 0) {
+				System.out.println("A new record was inserted successfully!");
+			}
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+	
+	
+	
+//	public void updatePhqResults(DemograhpicsMany phqDetails) {
+//	    String updateQuery = "UPDATE docusign_phq9_results " +
+//	                         "SET GAD7_score = ?" +
+//	                         "WHERE client_id = ? AND envelopeID = ?";
+//
+//	    try (Connection connection = DriverManager.getConnection(jdbcURL, dbUser, DB_PASSWORD);
+//	         PreparedStatement preparedStatement = connection.prepareStatement(updateQuery)) {
+//
+//	        // Set the values for the prepared statement
+//	        
+//	        preparedStatement.setInt(1, phqDetails.getGAD7Score());
+//	
+//	        preparedStatement.setString(2, phqDetails.getClientId());
+//	        preparedStatement.setString(3, phqDetails.getEnvelopeId());
+//
+//	        // Execute the update statement
+//	        int rowsUpdated = preparedStatement.executeUpdate();
+//
+//	        if (rowsUpdated > 0) {
+//	            System.out.println("Record updated successfully!");
+//	        } else {
+//	            System.out.println("No matching record found to update.");
+//	        }
+//
+//	    } catch (Exception e) {
+//	        e.printStackTrace();
+//	    }
+//	}
+
 	
 	
 	public void insertPHQ9Error(String ecr, String errorDate, String envelopeId, String organization) {
@@ -195,6 +252,46 @@ public class DatabaseHelper {
 		// Return false if an exception occurs or no result is found
 		return false;
 	}
+	
+	
+	  public static boolean isEnvelopeIdPresent(String envelopeId) {
+	        String queryPhq9 = "SELECT 1 FROM docusign_phq9_results WHERE EnvelopeID = ?";
+	        String queryGad7 = "SELECT 1 FROM docusign_gad7_results WHERE EnvelopeID = ?";
+	        boolean PHQ9Exists = false;
+	        boolean GAD7Exists = false;
+	        
+
+	        try (
+	            PreparedStatement stmtPhq9 = connection.prepareStatement(queryPhq9);
+	            PreparedStatement stmtGad7 = connection.prepareStatement(queryGad7)
+	        ) {
+	            // Check in docusign_phq9_results
+	            stmtPhq9.setString(1, envelopeId);
+	            try (ResultSet rsPhq9 = stmtPhq9.executeQuery()) {
+	                if (rsPhq9.next()) {
+	                    PHQ9Exists = true; // Envelope ID found in docusign_phq9_results
+	                }
+	            }
+
+	            // Check in docusign_gad7_results
+	            stmtGad7.setString(1, envelopeId);
+	            try (ResultSet rsGad7 = stmtGad7.executeQuery()) {
+	                if (rsGad7.next()) {
+	                    GAD7Exists =  true; // Envelope ID found in docusign_gad7_results
+	                }
+	            }
+
+	        } catch (SQLException e) {
+	            e.printStackTrace();
+	            // Optionally, handle exceptions based on your application's needs
+	        }
+	        
+
+	        return GAD7Exists && PHQ9Exists; // Envelope ID not found in either table
+	    }
+
+
+	
 
 	/**
 	 * Checks if the given envelope ID exists in the PHQ9_Results table.
@@ -226,6 +323,32 @@ public class DatabaseHelper {
 		return false;
 
 	}
+	
+	public boolean doesEnvelopeIdExistForGAD7(String envelopeId, String clientId) {
+		String checkQuery = "SELECT COUNT(*) FROM Docusign_GAD7_Results WHERE EnvelopeID = ? AND Client_ID= ?";
+
+		try (Connection connection = DriverManager.getConnection(jdbcURL, dbUser, DB_PASSWORD);
+				PreparedStatement preparedStatement = connection.prepareStatement(checkQuery)) {
+
+			// Set the envelopeId parameter in the prepared statement
+			preparedStatement.setString(1, envelopeId);
+			preparedStatement.setString(2, clientId);
+
+			// Execute the query and retrieve the result
+			ResultSet resultSet = preparedStatement.executeQuery();
+			if (resultSet.next()) {
+				int count = resultSet.getInt(1);
+				return count > 0; // Return true if the count is greater than 0
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		// Return false if an exception occurs or no result is found
+		return false;
+
+	}
+
 
 	public  void flattenPHQ9Results(String query) throws SQLException, IOException {
 
@@ -570,10 +693,10 @@ public class DatabaseHelper {
 		String htmlContent = dbHelper.generateHtmlPage(dbHelper.masterChildPHQ9Query2);
 //		String from = "reports@interborough.org";
 //		String to = "canarsiereports@interborough.org, sfriedman@interborough.org";
-		String subject = "PHQ9Report";
+//		String subject = "PHQ9Report";
 		
 		
-		dbHelper.sendEmailWithHTML(to, from, subject, htmlContent);
+//		dbHelper.sendEmailWithHTML(to, from, subject, htmlContent);
 		
 		
 		

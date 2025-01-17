@@ -1,12 +1,13 @@
 C:\Users\SFriedman\eclipse-workspace\PHQ9-Updater\src\main\java\org\interborough\docusign\phq9\BulkEnvelopes.java
 C:\Users\SFriedman\eclipse-workspace\PHQ9-Updater\src\main\java\org\interborough\docusign\phq9\CSVToStyledHTMLConverter.java
 C:\Users\SFriedman\eclipse-workspace\PHQ9-Updater\src\main\java\org\interborough\docusign\phq9\DatabaseHelper.java
+C:\Users\SFriedman\eclipse-workspace\PHQ9-Updater\src\main\java\org\interborough\docusign\phq9\DemograhpicsMany.java
+C:\Users\SFriedman\eclipse-workspace\PHQ9-Updater\src\main\java\org\interborough\docusign\phq9\DemoGraphicsEntity.java
+C:\Users\SFriedman\eclipse-workspace\PHQ9-Updater\src\main\java\org\interborough\docusign\phq9\DemographicsScores.java
+C:\Users\SFriedman\eclipse-workspace\PHQ9-Updater\src\main\java\org\interborough\docusign\phq9\DocusignDocuments.java
 C:\Users\SFriedman\eclipse-workspace\PHQ9-Updater\src\main\java\org\interborough\docusign\phq9\DocusignEnvelopeStatusAPI.java
 C:\Users\SFriedman\eclipse-workspace\PHQ9-Updater\src\main\java\org\interborough\docusign\phq9\EnvelopeService.java
 C:\Users\SFriedman\eclipse-workspace\PHQ9-Updater\src\main\java\org\interborough\docusign\phq9\MySpringBootApplication.java
 C:\Users\SFriedman\eclipse-workspace\PHQ9-Updater\src\main\java\org\interborough\docusign\phq9\PHQ9ResultsFlattener.java
-C:\Users\SFriedman\eclipse-workspace\PHQ9-Updater\src\main\java\org\interborough\docusign\phq9\PHQEntity.java
-C:\Users\SFriedman\eclipse-workspace\PHQ9-Updater\src\main\java\org\interborough\docusign\phq9\PHQMany.java
-C:\Users\SFriedman\eclipse-workspace\PHQ9-Updater\src\main\java\org\interborough\docusign\phq9\PHQScore.java
 C:\Users\SFriedman\eclipse-workspace\PHQ9-Updater\src\main\java\org\interborough\docusign\phq9\PQH9DocusignApplication.java
 C:\Users\SFriedman\eclipse-workspace\PHQ9-Updater\src\main\java\org\interborough\docusign\phq9\QueryExecutor.java
