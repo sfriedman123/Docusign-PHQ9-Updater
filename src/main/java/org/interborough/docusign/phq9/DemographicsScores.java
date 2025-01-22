@@ -27,7 +27,9 @@ public class DemographicsScores {
 		// Iterate over each radio group
 		// We want to skip the last set of radio buttons which has a question about
 		// difficulty
+	
 		for (int i = 0; i < radioGroupTabs.length(); i++) {
+			boolean question9Suicide = false;
 
 			JSONObject radioGroup = radioGroupTabs.getJSONObject(i);
 
@@ -35,7 +37,14 @@ public class DemographicsScores {
 				System.out.println("We don't want to process the difficulty radio score");
 				continue;
 			}
-
+			
+			if ("PHQ9Q9Grp".equals(radioGroup.optString("groupName")  ) ) {
+				System.out.println("this is the radio buttong for suicide");
+			    question9Suicide = true;
+			
+			}
+			
+			
 			JSONArray radios = radioGroup.getJSONArray("radios");
 
 			// Iterate over each radio button in the group
@@ -45,6 +54,10 @@ public class DemographicsScores {
 				// Check if the radio button is selected
 				if (radio.getString("selected").equals("true")) {
 					String radioValue = radio.getString("value");
+					if (question9Suicide)
+					{
+						System.out.println("question 9 score " + radioValue);
+					}
 
 					// Add the score for the selected radio to the total score
 					if (radioScores.containsKey(radioValue)) {

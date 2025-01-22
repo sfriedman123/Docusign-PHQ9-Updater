@@ -33,9 +33,9 @@ public class PQH9DocusignApplication {
 
 	final static String API =  "/envelopes?from_date=";
 
-	//static LocalDate twoMonthsAgo = LocalDate.now().minusMonths(2);
-	static LocalDate threeMonthsAgo = LocalDate.now().minusDays(7);
-	static String fromDate = threeMonthsAgo.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+	static LocalDate twoMonthsAgo = LocalDate.now().minusMonths(2);
+	//static LocalDate threeMonthsAgo = LocalDate.now().minusDays(7);
+	static String fromDate = twoMonthsAgo.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
 
 	// Output the calculated date
 

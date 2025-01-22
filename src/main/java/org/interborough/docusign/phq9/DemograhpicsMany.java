@@ -8,6 +8,8 @@ public class DemograhpicsMany {
     private String envelopeId = "";
     private String clientId = "";
     private Integer phqScore = null;
+    
+	private Integer question9Score = null;
    
 
 	private boolean bulk = false;
@@ -17,12 +19,13 @@ public class DemograhpicsMany {
     public DemograhpicsMany() {}
 
     // Parameterized Constructor
-    public DemograhpicsMany(Date signedDate, String envelopeId, String clientId, int phqScore, boolean bulk) {
+    public DemograhpicsMany(Date signedDate, String envelopeId, String clientId, int phqScore, boolean bulk, int question9Score) {
         this.signedDate = signedDate;
         this.envelopeId = envelopeId;
         this.clientId =  clientId;
         this.phqScore = phqScore;
         this.bulk = bulk;
+        this.question9Score = question9Score;
     }
 
     // Getters and Setters
@@ -65,6 +68,15 @@ public class DemograhpicsMany {
     public void setPhqScore(int phqScore) {
         this.phqScore = phqScore;
     }
+    
+    public Integer getQuestion9Score() {
+		return question9Score;
+	}
+
+	public void setQuestion9Score(Integer question9Score) {
+		this.question9Score = question9Score;
+	}
+
 
     // toString Method
     @Override
@@ -74,6 +86,8 @@ public class DemograhpicsMany {
                 ", envelopeId='" + envelopeId + '\'' +
                 ", clientId=" + clientId +
                 ", phqScore=" + phqScore +
+                ", question9Score=" + this.question9Score +
+                
                
                 
                 '}';
